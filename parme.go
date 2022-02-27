@@ -3,6 +3,8 @@ package main
 type ListDataErr struct {
 	Error string `json:"error"`
 }
+
+// 解析Pixiv用结构体
 type ListData struct {
 	Mode      string         `json:"mode"`
 	Content   string         `json:"content"`
@@ -15,6 +17,8 @@ type ListData struct {
 	NextDate  bool           `json:"next_date"`
 	RankTotal int            `json:"rank_total"`
 }
+
+// 解析Pixiv用子结构体
 type ContentsData struct {
 	Title                 string      `json:"title"`
 	Date                  string      `json:"date"`
@@ -38,8 +42,12 @@ type ContentsData struct {
 	IllustUploadTimestamp int         `json:"illust_upload_timestamp"`
 	Attr                  string      `json:"attr"`
 }
+
+// 推送模块结构体
 type PushData struct {
 	Token   string `json:"token"`
 	Title   string `json:"title"`
 	Content string `json:"content"`
 }
+
+// 数据库入库结构体
