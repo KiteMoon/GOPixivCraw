@@ -31,15 +31,15 @@ type ContentsData struct {
 	ProfileImg            string      `json:"profile_img"`
 	IllustContentType     interface{} `json:"illust_content_type"`
 	IllustSeries          interface{} `json:"illust_series"`
-	IllustId              int         `json:"illust_id"`
-	Width                 int         `json:"width"`
-	Height                int         `json:"height"`
-	UserId                int         `json:"user_id"`
-	Rank                  int         `json:"rank"`
-	YesRank               int         `json:"yes_rank"`
-	RatingCount           int         `json:"rating_count"`
-	ViewCount             int         `json:"view_count"`
-	IllustUploadTimestamp int         `json:"illust_upload_timestamp"`
+	IllustId              int64       `json:"illust_id"`
+	Width                 int64       `json:"width"`
+	Height                int64       `json:"height"`
+	UserId                int64       `json:"user_id"`
+	Rank                  int64       `json:"rank"`
+	YesRank               int64       `json:"yes_rank"`
+	RatingCount           int64       `json:"rating_count"`
+	ViewCount             int64       `json:"view_count"`
+	IllustUploadTimestamp int64       `json:"illust_upload_timestamp"`
 	Attr                  string      `json:"attr"`
 }
 
@@ -51,3 +51,18 @@ type PushData struct {
 }
 
 // 数据库入库结构体
+type SqlData struct {
+	PID         int64
+	TOPNUM      int64
+	TITLE       string
+	ANTHOR      string
+	ANTHORID    int64
+	TOPDATE     int64
+	UPLOADDATE  string
+	TAG         string
+	PHOTONUM    string
+	PHOTOWIDTH  int64
+	PHOTOHEIGHT int64
+	VIEWURL     string
+	TOPTREND    string
+}
