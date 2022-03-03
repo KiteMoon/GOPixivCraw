@@ -9,17 +9,20 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"time"
 )
 
 var (
 	pushPlusToken string = os.Getenv("pushplustoken")
 	err           error
+	pushTime      int64
 	DB            *sql.DB
 )
 
 // 初始化
 func init() {
-	dsn := ""
+	pushTime = 1646300669
+	dsn := "root:redhat@tcp(127.0.0.1:3306)/pixivhttp"
 	DB, err = sql.Open("mysql", dsn)
 	if err != nil {
 		fmt.Println("发生全局错误，数据库连接失败")
@@ -31,11 +34,10 @@ func init() {
 		fmt.Println("与数据库连接终端，心跳错误，抛出错误")
 		panic(err)
 	}
-	fmt.Println("hihi")
 }
 func main() {
-	fmt.Println("helloworld")
-	page := 2
+	fmt.Println("开始启动爬虫")
+	page := 1
 	var bigdata []SqlData
 	for i := 0; i < page; i++ {
 		code, message, data := GetPixivList(i + 1)
@@ -44,8 +46,13 @@ func main() {
 	}
 	fmt.Println(bigdata)
 	for t := 0; t < len(bigdata); t++ {
-		test := "insert into top_list(PID,TOPNUM,TITLE,ANTHOR,ANTHORID,TOPDATE,UPLOADDATE,TAG,PHOTONUM,PHOTOWIDTH,PHOTOHEIGHT,VIEWURL,TOPTREND) values (?,?,?,?,?,?,?,?,?,?,?,?,?)"
-		_, err = DB.Exec(test, bigdata[t].PID, bigdata[t].TOPNUM, bigdata[t].TITLE, bigdata[t].ANTHOR, bigdata[t].ANTHORID, bigdata[t].TOPDATE, bigdata[t].UPLOADDATE, bigdata[t].TAG, bigdata[t].PHOTONUM, bigdata[t].PHOTOWIDTH, bigdata[t].PHOTOHEIGHT, bigdata[t].VIEWURL, "开发字段，暂不开放")
+		code := QueryPidList(bigdata[t].PID, bigdata[t].TOPNUM)
+		if code == 200 {
+			fmt.Printf("\n---监控程序---\nPID:%d\n该字段存在于数据库，监视程序已经处理完成\n------\n\n", bigdata[t].PID)
+			continue
+		}
+		test := "insert into top_list(PID,TOPNUM,TITLE,ANTHOR,ANTHORID,TOPDATE,UPLOADDATE,TAG,PHOTONUM,PHOTOWIDTH,PHOTOHEIGHT,VIEWURL,TOPTREND,ONLISTNUM) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+		_, err = DB.Exec(test, bigdata[t].PID, bigdata[t].TOPNUM, bigdata[t].TITLE, bigdata[t].ANTHOR, bigdata[t].ANTHORID, bigdata[t].TOPDATE, bigdata[t].UPLOADDATE, bigdata[t].TAG, bigdata[t].PHOTONUM, bigdata[t].PHOTOWIDTH, bigdata[t].PHOTOHEIGHT, bigdata[t].VIEWURL, bigdata[t].TOPNUM, 1)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -105,7 +112,6 @@ func GetPixivList(page int) (code, error string, data []SqlData) {
 
 		fmt.Printf("图片序号:%d\t", t+1)
 		fmt.Println(respondata.Contents[t].Title)
-		fmt.Println(respondata.Contents[t].IllustId)
 		sqldata1.PID = respondata.Contents[t].IllustId
 		sqldata1.TOPNUM = respondata.Contents[t].Rank
 		sqldata1.TITLE = respondata.Contents[t].Title
@@ -134,6 +140,11 @@ func GetPixivList(page int) (code, error string, data []SqlData) {
 
 // 实现一个error处理函数
 func PushErrorMessage(code string, message string) {
+	nowTime := time.Now().Unix()
+	if nowTime-pushTime < 600 {
+		fmt.Println("十分钟内推送过一次，自动停止推送")
+		return
+	}
 	//只提供pushPlus接口，请
 	pushUrl := "http://www.pushplus.plus/send"
 	pushClient := http.Client{}
@@ -148,12 +159,13 @@ func PushErrorMessage(code string, message string) {
 		requestDataJson, _ := json.Marshal(requestData)
 
 		pushRequest, _ := http.NewRequest("POST", pushUrl, bytes.NewBuffer(requestDataJson))
-		response, err := pushClient.Do(pushRequest)
-		fmt.Println(response)
+		_, err := pushClient.Do(pushRequest)
 		if err != nil {
 			fmt.Println("发送push失败")
 			return
 		}
+		fmt.Println("发起推送成功")
+		pushTime = time.Now().Unix()
 
 	}
 
@@ -163,7 +175,38 @@ func WriteDataBase() {
 
 }
 
-// 实现一个消息队列
-func AddPixiv() {
-
+// 实现一个全局检查器，检查是否被收录过
+func QueryPidList(pid, topnum int64) (code int) {
+	fmt.Println("---数据库程序---")
+	fmt.Printf("PID:%d\n", pid)
+	defer fmt.Printf("\n------")
+	querySql := "SELECT TITLE,TOPTREND,TOPNUM,ONLISTNUM FROM TOP_LIST WHERE PID = ?"
+	var data SqlDataQuery
+	err := DB.QueryRow(querySql, pid).Scan(&data.TITLE, &data.TOPTREND, &data.TOPNUM, &data.ONLISTNUM)
+	if err != nil {
+		fmt.Printf("该作品为第一次上榜")
+		return 404
+	}
+	if data.TOPNUM == topnum {
+		fmt.Printf("该作品已经进入数据库，但是排名未变化")
+		return 200
+	}
+	fmt.Println("该作品排名发生变化")
+	fmt.Println("数据库记录排名:", data.TOPNUM)
+	fmt.Println("在线排名:", topnum)
+	fmt.Println("信息正在修改")
+	updateSql := "update TOP_LIST SET TOPTREND = ? , ONLISTNUM = ?  ,TOPNUM = ? WHERE PID = ?"
+	toptrend := fmt.Sprintf("%s,%d", data.TOPTREND, topnum)
+	onlistnum := data.ONLISTNUM + 1
+	_, err = DB.Exec(updateSql, toptrend, onlistnum, topnum, pid)
+	if err != nil {
+		fmt.Println("修改数据库失败，已经发起报警")
+		fmt.Println(err)
+		PushErrorMessage("400", err.Error())
+		fmt.Println("报警成功")
+		return
+	} else {
+		fmt.Println("数据库修改成功，完成记录")
+		return 200
+	}
 }
