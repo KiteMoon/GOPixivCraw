@@ -65,4 +65,13 @@ type SqlData struct {
 	PHOTOHEIGHT int64
 	VIEWURL     string
 	TOPTREND    string
+	ONLISTNUM   int
+}
+
+// 数据库检查器
+type SqlDataQuery struct {
+	TITLE     string
+	TOPNUM    int64
+	TOPTREND  string
+	ONLISTNUM int64
 }
