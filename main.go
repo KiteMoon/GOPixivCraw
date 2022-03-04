@@ -22,7 +22,7 @@ var (
 // 初始化
 func init() {
 	pushTime = 1646300669
-	dsn := ""
+	dsn := "root:redhat@tcp(127.0.0.1:3306)/pixivhttp"
 	DB, err = sql.Open("mysql", dsn)
 	if err != nil {
 		fmt.Println("发生全局错误，数据库连接失败")
@@ -38,7 +38,7 @@ func init() {
 }
 func main() {
 	fmt.Println("开始启动爬虫")
-	page := 3
+	page := 10
 	var bigdata []SqlData
 	for i := 0; i < page; i++ {
 		code, message, data := GetPixivList(i + 1)
@@ -64,6 +64,8 @@ func main() {
 
 // 实现一个全局请求器
 func GetPixivList(page int) (code, error string, data []SqlData) {
+	//请勿加拿大自爆兵式请求
+	time.Sleep(10 * time.Second)
 	//构建请求
 	//写个循环，循环要榜单前多少
 	//var data string

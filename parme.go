@@ -11,7 +11,7 @@ type ListData struct {
 	Contents  []ContentsData `json:"contents"`
 	Page      int            `json:"page"`
 	Prev      interface{}    `json:"prev"` //这个接口有点鬼畜，你请求第一页会返回false，你请求第二页会返回1？？？？
-	Next      int            `json:"next"`
+	Next      interface{}    `json:"next"` //这个接口一样的，反正没用，interface去
 	Date      string         `json:"date"`
 	PrevDate  string         `json:"prev_date"`
 	NextDate  bool           `json:"next_date"`
