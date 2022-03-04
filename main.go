@@ -22,7 +22,7 @@ var (
 // 初始化
 func init() {
 	pushTime = 1646300669
-	dsn := "root:redhat@tcp(127.0.0.1:3306)/pixivhttp"
+	dsn := ""
 	DB, err = sql.Open("mysql", dsn)
 	if err != nil {
 		fmt.Println("发生全局错误，数据库连接失败")
@@ -34,25 +34,26 @@ func init() {
 		fmt.Println("与数据库连接终端，心跳错误，抛出错误")
 		panic(err)
 	}
+	DB.SetConnMaxLifetime(30)
 }
 func main() {
 	fmt.Println("开始启动爬虫")
-	page := 1
+	page := 3
 	var bigdata []SqlData
 	for i := 0; i < page; i++ {
 		code, message, data := GetPixivList(i + 1)
 		PushErrorMessage(code, message)
 		bigdata = append(bigdata, data...)
 	}
-	fmt.Println(bigdata)
+	defer DB.Close()
 	for t := 0; t < len(bigdata); t++ {
 		code := QueryPidList(bigdata[t].PID, bigdata[t].TOPNUM)
 		if code == 200 {
 			fmt.Printf("\n---监控程序---\nPID:%d\n该字段存在于数据库，监视程序已经处理完成\n------\n\n", bigdata[t].PID)
 			continue
 		}
-		test := "insert into top_list(PID,TOPNUM,TITLE,ANTHOR,ANTHORID,TOPDATE,UPLOADDATE,TAG,PHOTONUM,PHOTOWIDTH,PHOTOHEIGHT,VIEWURL,TOPTREND,ONLISTNUM) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-		_, err = DB.Exec(test, bigdata[t].PID, bigdata[t].TOPNUM, bigdata[t].TITLE, bigdata[t].ANTHOR, bigdata[t].ANTHORID, bigdata[t].TOPDATE, bigdata[t].UPLOADDATE, bigdata[t].TAG, bigdata[t].PHOTONUM, bigdata[t].PHOTOWIDTH, bigdata[t].PHOTOHEIGHT, bigdata[t].VIEWURL, bigdata[t].TOPNUM, 1)
+		test := "insert into top_list(PID,FIRSTTOPNUM,TOPNUM,MOSTTOPNUM,MODTIME,TITLE,ANTHOR,ANTHORID,TOPDATE,UPLOADDATE,TAG,PHOTONUM,PHOTOWIDTH,PHOTOHEIGHT,VIEWURL,TOPTREND) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+		_, err = DB.Exec(test, bigdata[t].PID, bigdata[t].TOPNUM, bigdata[t].TOPNUM, bigdata[t].TOPNUM, time.Now().Unix(), bigdata[t].TITLE, bigdata[t].ANTHOR, bigdata[t].ANTHORID, bigdata[t].TOPDATE, bigdata[t].UPLOADDATE, bigdata[t].TAG, bigdata[t].PHOTONUM, bigdata[t].PHOTOWIDTH, bigdata[t].PHOTOHEIGHT, bigdata[t].VIEWURL, bigdata[t].TOPTREND)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -131,7 +132,7 @@ func GetPixivList(page int) (code, error string, data []SqlData) {
 		sqldata1.PHOTOWIDTH = respondata.Contents[t].Width
 		sqldata1.PHOTOHEIGHT = respondata.Contents[t].Height
 		sqldata1.VIEWURL = respondata.Contents[t].Url
-		sqldata1.TOPTREND = "test"
+		sqldata1.TOPTREND = fmt.Sprintf("[{\"RANK\":%d,\"TIME\":%d}]", respondata.Contents[t].Rank, time.Now().Unix())
 		sqldata = append(sqldata, sqldata1)
 	}
 
@@ -180,9 +181,9 @@ func QueryPidList(pid, topnum int64) (code int) {
 	fmt.Println("---数据库程序---")
 	fmt.Printf("PID:%d\n", pid)
 	defer fmt.Printf("\n------")
-	querySql := "SELECT TITLE,TOPTREND,TOPNUM,ONLISTNUM FROM TOP_LIST WHERE PID = ?"
+	querySql := "SELECT TITLE,TOPTREND,TOPNUM FROM TOP_LIST WHERE PID = ?"
 	var data SqlDataQuery
-	err := DB.QueryRow(querySql, pid).Scan(&data.TITLE, &data.TOPTREND, &data.TOPNUM, &data.ONLISTNUM)
+	err := DB.QueryRow(querySql, pid).Scan(&data.TITLE, &data.TOPTREND, &data.TOPNUM)
 	if err != nil {
 		fmt.Printf("该作品为第一次上榜")
 		return 404
@@ -191,14 +192,50 @@ func QueryPidList(pid, topnum int64) (code int) {
 		fmt.Printf("该作品已经进入数据库，但是排名未变化")
 		return 200
 	}
+	var topRankTrend []PixivPidRankTrend
+	toptrend := data.TOPTREND
+
+	err = json.Unmarshal([]byte(data.TOPTREND), &topRankTrend)
+	if err != nil {
+		fmt.Println("解析趋势失败，跳过趋势解析")
+
+	} else {
+		// 这里提供趋势追加
+		fmt.Println(topnum)
+		r := PixivPidRankTrend{
+			RANK: topnum,
+			TIME: time.Now().Unix(),
+		}
+		topRankTrend = append(topRankTrend, r)
+		newTopRankTrend, err := json.Marshal(topRankTrend)
+		if err != nil {
+			fmt.Println("解析趋势失败，跳过趋势解析")
+
+		} else {
+			toptrend = string(newTopRankTrend)
+		}
+	}
 	fmt.Println("该作品排名发生变化")
 	fmt.Println("数据库记录排名:", data.TOPNUM)
 	fmt.Println("在线排名:", topnum)
 	fmt.Println("信息正在修改")
-	updateSql := "update TOP_LIST SET TOPTREND = ? , ONLISTNUM = ?  ,TOPNUM = ? WHERE PID = ?"
-	toptrend := fmt.Sprintf("%s,%d", data.TOPTREND, topnum)
-	onlistnum := data.ONLISTNUM + 1
-	_, err = DB.Exec(updateSql, toptrend, onlistnum, topnum, pid)
+	if topnum < data.TOPNUM {
+		fmt.Println("排名上升")
+		updateSql := "update TOP_LIST SET TOPTREND = ? ,TOPNUM = ? ,MOSTTOPNUM=? ,MODTIME=? WHERE PID = ?"
+		_, err = DB.Exec(updateSql, toptrend, topnum, topnum, time.Now().Unix(), pid)
+		if err != nil {
+			fmt.Println("修改数据库失败，已经发起报警")
+			fmt.Println(err)
+			PushErrorMessage("400", err.Error())
+			fmt.Println("报警成功")
+			return
+		} else {
+			fmt.Println("数据库修改成功，完成记录")
+			return 200
+		}
+	}
+	updateSql := "update TOP_LIST SET TOPTREND = ?   ,TOPNUM = ? ,MODTIME=? WHERE PID = ?"
+	_, err = DB.Exec(updateSql, toptrend, topnum, time.Now().Unix(), pid)
 	if err != nil {
 		fmt.Println("修改数据库失败，已经发起报警")
 		fmt.Println(err)

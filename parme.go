@@ -75,3 +75,9 @@ type SqlDataQuery struct {
 	TOPTREND  string
 	ONLISTNUM int64
 }
+
+// 上升趋势信息
+type PixivPidRankTrend struct {
+	RANK int64
+	TIME int64
+}
