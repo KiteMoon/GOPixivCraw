@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/spf13/viper"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -21,8 +22,24 @@ var (
 
 // 初始化
 func init() {
-	pushTime = 1646300669
-	dsn := "root:redhat@tcp(127.0.0.1:3306)/pixivhttp"
+	viper.SetConfigFile("./config/config.yml")
+	err := viper.ReadInConfig()
+	if err != nil {
+		fmt.Println("致命错误")
+		fmt.Println("本次错误无法触发推送")
+		panic(fmt.Errorf("读取配置文件失败: %s \n", err))
+	}
+	host := viper.GetString("config.mysql.host")
+	dbname := viper.GetString("config.mysql.dbname")
+	username := viper.GetString("config.mysql.username")
+	password := viper.GetString("config.mysql.password")
+	pushTime = viper.GetInt64("config.startTS")
+	fmt.Println("数据库地址:", host)
+	fmt.Println("数据库名称:", dbname)
+	fmt.Println("数据库的用户名:", username)
+	fmt.Println("数据库的密码", password)
+	fmt.Println("推送起始时间戳", pushTime)
+	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s", username, password, host, dbname)
 	DB, err = sql.Open("mysql", dsn)
 	if err != nil {
 		fmt.Println("发生全局错误，数据库连接失败")
