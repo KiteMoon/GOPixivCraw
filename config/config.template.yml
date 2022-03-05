@@ -1,0 +1,9 @@
+config:
+  startTS: 1646300669 #推送起始时间戳时间戳
+  mysql:
+    host: "" #数据库地址
+    dbname: "" #数据库名称
+    username: "" #数据库
+    password: "" #密码
+  log:
+    filepath: "" #日志存放位置
