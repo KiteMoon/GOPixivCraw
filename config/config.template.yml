@@ -7,3 +7,6 @@ config:
     password: "" #密码
   log:
     filepath: "" #日志存放位置
+  pushconfig:
+    type: "push++" #推送渠道，目前只支持push++
+    token: "" #推送token
