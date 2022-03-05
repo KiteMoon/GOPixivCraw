@@ -260,7 +260,7 @@ func QueryPidList(pid, topnum int64) (code int) {
 			return 200
 		}
 	}
-	updateSql := "update TOP_LIST SET TOPTRsEND = ?   ,TOPNUM = ? ,MODTIME=? WHERE PID = ?"
+	updateSql := "update TOP_LIST SET TOPTREND = ?   ,TOPNUM = ? ,MODTIME=? WHERE PID = ?"
 	_, err = DB.Exec(updateSql, toptrend, topnum, time.Now().Unix(), pid)
 	if err != nil {
 		fmt.Println("修改数据库失败，已经发起报警")
