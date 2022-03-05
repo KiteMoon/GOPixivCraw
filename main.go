@@ -9,12 +9,11 @@ import (
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"time"
 )
 
 var (
-	pushPlusToken string = os.Getenv("pushplustoken")
+	pushPlusToken string
 	err           error
 	pushTime      int64
 	DB            *sql.DB
@@ -34,11 +33,19 @@ func init() {
 	username := viper.GetString("config.mysql.username")
 	password := viper.GetString("config.mysql.password")
 	pushTime = viper.GetInt64("config.startTS")
+	pushType := viper.GetString("config.pushconfig.type")
+	if pushType == "push++" {
+		pushPlusToken = viper.GetString("config.pushconfig.token")
+	} else {
+		fmt.Println("未知的推送渠道，错误")
+		panic("NO PUSH")
+	}
 	fmt.Println("数据库地址:", host)
 	fmt.Println("数据库名称:", dbname)
 	fmt.Println("数据库的用户名:", username)
 	fmt.Println("数据库的密码", password)
 	fmt.Println("推送起始时间戳", pushTime)
+	fmt.Println("推送方式", pushType)
 	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s", username, password, host, dbname)
 	DB, err = sql.Open("mysql", dsn)
 	if err != nil {
@@ -82,7 +89,7 @@ func main() {
 // 实现一个全局请求器
 func GetPixivList(page int) (code, error string, data []SqlData) {
 	//请勿加拿大自爆兵式请求
-	time.Sleep(10 * time.Second)
+	//time.Sleep(10 * time.Second)
 	//构建请求
 	//写个循环，循环要榜单前多少
 	//var data string
@@ -253,7 +260,7 @@ func QueryPidList(pid, topnum int64) (code int) {
 			return 200
 		}
 	}
-	updateSql := "update TOP_LIST SET TOPTREND = ?   ,TOPNUM = ? ,MODTIME=? WHERE PID = ?"
+	updateSql := "update TOP_LIST SET TOPTRsEND = ?   ,TOPNUM = ? ,MODTIME=? WHERE PID = ?"
 	_, err = DB.Exec(updateSql, toptrend, topnum, time.Now().Unix(), pid)
 	if err != nil {
 		fmt.Println("修改数据库失败，已经发起报警")
