@@ -73,7 +73,7 @@ func main() {
 	for t := 0; t < len(bigdata); t++ {
 		code := QueryPidList(bigdata[t].PID, bigdata[t].TOPNUM)
 		if code == 200 {
-			fmt.Printf("\n---监控程序---\nPID:%d\n该字段存在于数据库，监视程序已经处理完成\n------\n\n", bigdata[t].PID)
+			fmt.Printf("\n---监控程序---\nPID:%d\n该PID对应的作品已经存在于数据库 \n------\n\n", bigdata[t].PID)
 			continue
 		}
 		test := "insert into top_list(PID,FIRSTTOPNUM,TOPNUM,MOSTTOPNUM,MODTIME,TITLE,ANTHOR,ANTHORID,TOPDATE,UPLOADDATE,TAG,PHOTONUM,PHOTOWIDTH,PHOTOHEIGHT,VIEWURL,TOPTREND) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
